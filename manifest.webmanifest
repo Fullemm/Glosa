@@ -1,7 +1,7 @@
 {
-  "name": "Nihongo od zera",
-  "short_name": "Nihongo",
-  "description": "Hiragana, katakana, kanji z podstawówki, zwroty i gramatyka po polsku.",
+  "name": "Glosa",
+  "short_name": "Glosa",
+  "description": "Nauka języków od zera: japoński i chiński, po polsku.",
   "lang": "pl",
   "start_url": "./",
   "scope": "./",

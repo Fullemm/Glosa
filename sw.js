@@ -1,8 +1,9 @@
-const VERSION = "a87f745d4efa";
+const VERSION = "2936a2ed039c";
 const CACHE = "nihongo-" + VERSION;
 const FONTS = "nihongo-fonts";
 const FILES = [
   "./",
+  "./data/curriculum.js",
   "./data/kanji.js",
   "./data/licenses.js",
   "./data/s-k1.js",
@@ -11,7 +12,15 @@ const FILES = [
   "./data/s-k4.js",
   "./data/s-k5.js",
   "./data/s-k6.js",
+  "./data/s-k7.js",
+  "./data/s-k8.js",
+  "./data/s-k9.js",
   "./data/s-kana.js",
+  "./data/s-zh.js",
+  "./data/sentences.js",
+  "./data/themes.js",
+  "./data/zh.js",
+  "./engine.js",
   "./icons/apple-180.png",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
@@ -22,7 +31,8 @@ const FILES = [
   "./licenses/AnimCJK-COPYING.txt",
   "./licenses/HanziWriter-MIT.txt",
   "./licenses/kanji-data-MIT.txt",
-  "./manifest.webmanifest"
+  "./manifest.webmanifest",
+  "./sumi.js"
 ];
 
 self.addEventListener("install", e => {
