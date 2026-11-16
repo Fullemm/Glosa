@@ -1,9 +1,10 @@
-const VERSION = "e5d9671ccc32";
+const VERSION = "4469862012c0";
 const CACHE = "nihongo-" + VERSION;
 const FONTS = "nihongo-fonts";
 const FILES = [
   "./",
   "./data/curriculum.js",
+  "./data/en.js",
   "./data/foka-img.js",
   "./data/kanji.js",
   "./data/licenses.js",
@@ -23,6 +24,7 @@ const FILES = [
   "./data/themes.js",
   "./data/zh.js",
   "./engine.js",
+  "./i18n.js",
   "./icons/apple-180.png",
   "./icons/icon-192.png",
   "./icons/icon-512.png",

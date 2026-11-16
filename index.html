@@ -1418,6 +1418,15 @@ body.reduce-motion .pnode.current { animation: none; }
 .hand-compare .model:has(svg) { width: auto; height: auto; min-width: 96px; min-height: 96px; }
 .ps-sod { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 .ps-sod svg { border: 1.5px solid var(--line); border-radius: 12px; background: var(--surface-elev); }
+/* Ranga */
+.lvl { display: grid; gap: 12px; }
+.lvl-top { display: flex; gap: 14px; align-items: center; }
+.lvl-top > div { display: grid; gap: 2px; }
+.lvl-g { width: 56px; height: 56px; border-radius: 14px; background: var(--seal); color: #fff; display: grid; place-items: center; font-size: 30px; flex: none; transform: rotate(-4deg); }
+.lvl-n { font-size: 1.35rem; }
+.lvl-next { display: grid; gap: 8px; }
+.lvl-req { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; align-items: center; }
+.lvl-req .pbar { grid-column: 1 / -1; max-width: none; }
 /* Plan dnia */
 .pbar { height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; max-width: 380px; }
 .pbar i { display: block; height: 100%; background: var(--seal); border-radius: 99px; transition: width 400ms; }
@@ -1506,7 +1515,10 @@ window.onerror = function (m, s, l, c) {
 <script src="data/zh.js"></script>
 <script src="data/themes.js"></script>
 <script src="data/sentences.js"></script>
+<script src="data/en.js"></script>
+<script src="i18n.js"></script>
 <script src="data/curriculum.js"></script>
+<script>window.I18N && I18N.post();</script>
 <script src="engine.js"></script>
 <script src="sumi.js"></script>
 <script src="data/recog-t.js"></script>
@@ -1780,6 +1792,68 @@ window.onerror = function (m, s, l, c) {
     while (i < RANKS.length - 1 && xp >= RANKS[i + 1][0]) i++;
     return i;
   };
+  /* ---------- Rangi według tego, co naprawdę umiesz (nie według punktów) ---------- */
+  const knownK = (k) => sc(k) >= 3;
+  function skillMetrics() {
+    const one = (l) => l.filter((x) => x.q.length === 1 && !/[ゃゅょャュョ゛゜]/.test(x.q));
+    const basic = (d) => DECKS[d].groups.filter((g) => /^basic/.test(g.id)).flatMap((g) => g.items);
+    const cnt = (l) => l.filter((x) => knownK(x.k)).length;
+    if (ZHC()) {
+      return { hz: cnt(ZHD.hall || []), hzAll: (ZHD.hall || []).length, ph: cnt(ZHD.pall || []) };
+    }
+    return {
+      hira: cnt(basic("hiragana")),
+      kata: cnt(basic("katakana")),
+      ph: cnt(DECKS.zwroty.all),
+      kj: cnt(KALL),
+      zd: PS_ITEMS.filter((x) => sc(x.k) >= 1).length,
+    };
+  }
+  // [nazwa, znak, opis, wymagania(m) => [[co, masz, potrzeba], ...]]
+  const LVL_JA = [
+    ["Pup", "犬", "Jeszcze nic nie umiesz. Wszystko przed tobą.", () => []],
+    ["Analfabeta", "文", "Znasz pierwsze znaki, ale jeszcze nic nie przeczytasz.", (m) => [["znaki hiragany", m.hira, 5]]],
+    ["Przedszkolak", "幼", "Połowa hiragany za tobą — sylabizujesz proste słowa.", (m) => [["znaki hiragany", m.hira, 23]]],
+    ["Klasa specjalna", "特", "Cała hiragana. Przeczytasz już każde słowo zapisane kaną.", (m) => [["znaki hiragany", m.hira, 46]]],
+    ["Zerówka", "零", "Hiragana i pół katakany. Zaczynasz łapać zapożyczenia.", (m) => [["znaki hiragany", m.hira, 46], ["znaki katakany", m.kata, 23]]],
+    ["Pierwszak", "一", "Obie kany i pierwsze zwroty — przywitasz się i podziękujesz.", (m) => [["znaki katakany", m.kata, 46], ["zwroty", m.ph, 10]]],
+    ["Podstawówka", "小", "Pierwsze kanji i zwroty na co dzień.", (m) => [["kanji", m.kj, 40], ["zwroty", m.ph, 20]]],
+    ["Turysta", "旅", "Dogadasz się w sklepie i zapytasz o drogę.", (m) => [["kanji", m.kj, 80], ["zwroty", m.ph, 30], ["napisane zdania", m.zd, 10]]],
+    ["Gaijin", "外", "Czytasz napisy na ulicy i proste teksty.", (m) => [["kanji", m.kj, 240], ["zwroty", m.ph, 40], ["napisane zdania", m.zd, 20]]],
+    ["Licealista", "高", "Kanji jak japoński uczeń w połowie podstawówki.", (m) => [["kanji", m.kj, 500], ["napisane zdania", m.zd, 30]]],
+    ["Otaku z dyplomem", "宅", "Tysiąc kanji — większość mangi bez furigany.", (m) => [["kanji", m.kj, 1000]]],
+    ["Salaryman", "社", "Przeczytasz gazetę, choć czasem z pomocą.", (m) => [["kanji", m.kj, 1600]]],
+    ["Natural", "達", "Wszystkie kanji z listy jōyō. Japończycy pytają, gdzie się uczyłeś.", (m) => [["kanji", m.kj, 2136], ["zwroty", m.ph, 50], ["napisane zdania", m.zd, 40]]],
+  ];
+  function lvlZH() {
+    const n = (ZHD.hall || []).length || 100;
+    const f = (x) => Math.max(1, Math.round(n * x));
+    const names = LVL_JA.map((r) => r.slice(0, 3));
+    const steps = [0, 5, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1];
+    return names.map((r, i) => [...r, (m) => (i ? [["znaki", m.hz, i === 1 ? 5 : f(steps[i])]] : [])]);
+  }
+  const LEVELS = () => (ZHC() ? lvlZH() : LVL_JA);
+  function levelNow() {
+    const m = skillMetrics();
+    const L = LEVELS();
+    let i = 0;
+    while (i < L.length - 1 && L[i + 1][3](m).every(([, have, need]) => have >= need)) i++;
+    return { i, L, m, cur: L[i], next: L[i + 1] || null };
+  }
+  function levelCardHTML() {
+    const { i, L, m, cur, next } = levelNow();
+    const reqs = next ? next[3](m) : [];
+    return `<section class="card lvl">
+      <div class="lvl-top"><span class="jp lvl-g">${cur[1]}</span><div><span class="small">Twoja ranga · ${i + 1} z ${L.length}</span><b class="lvl-n">${cur[0]}</b><span class="small">${cur[2]}</span></div></div>
+      ${
+        next
+          ? `<div class="lvl-next"><span class="small">Następna: <b>${next[0]}</b></span>${reqs
+              .map(([what, have, need]) => `<div class="lvl-req"><span>${what}</span><span class="small">${Math.min(have, need)} / ${need}</span><div class="pbar"><i style="width:${Math.min(100, Math.round((have / need) * 100))}%"></i></div></div>`)
+              .join("")}</div>`
+          : `<p class="small">Najwyższa ranga. お疲れ様でした!</p>`
+      }
+    </section>`;
+  }
   function streakNow() {
     if (G.last === today()) return G.streak;
     const y = new Date();
@@ -1867,7 +1941,7 @@ window.onerror = function (m, s, l, c) {
       <div class="hud-Right">
         <a class="hud-pill" href="#postepy" title="Dzisiejsza aktywność i seria dni">
           <span class="dot"></span>
-          <span>${st} ${dni(st)} · ${RANKS[i][1]}</span>
+          <span>${st} ${dni(st)} · ${levelNow().cur[0]}</span>
         </a>
         <button class="icon-btn" type="button" data-open-settings aria-label="Ustawienia" title="Ustawienia">⚙</button>
       </div>`;
@@ -1886,12 +1960,13 @@ window.onerror = function (m, s, l, c) {
       }
       G.combo++;
       if (G.combo > G.best) G.best = G.combo;
-      const r0 = rankIdx(G.xp);
       G.xp += xp;
       G.dayXp += xp;
-      const r1 = rankIdx(G.xp);
+      const lv = levelNow();
+      const r0 = G.lvl === undefined ? lv.i : G.lvl;
+      G.lvl = lv.i;
       const b = checkBadges();
-      if (r1 > r0) { toast(RANKS[r1][2], "Awans: " + RANKS[r1][1], "Nowy stopień znajomości."); petals("burst"); }
+      if (lv.i > r0) { toast(lv.cur[1], "Awans: " + lv.cur[0], lv.cur[2]); petals("burst"); }
       else if (b) { toast(b[1], "Pieczęć: " + b[2], b[3]); petals("burst"); }
     } else {
       G.combo = 0;
@@ -4131,6 +4206,8 @@ window.onerror = function (m, s, l, c) {
         }
       </div>
 
+      ${levelCardHTML()}
+
       <section class="stats">
         <div class="stat-box">
           <b>${known.length}</b>
@@ -5068,7 +5145,7 @@ window.onerror = function (m, s, l, c) {
         d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
     return d[a.length][b.length];
   }
-  const STOP = new Set(["sie", "to", "jest", "a", "i", "w", "na", "do", "z", "o"]);
+  const STOP = new Set(["sie", "to", "jest", "a", "i", "w", "na", "do", "z", "o", "the", "an", "is", "are", "of", "it", "be"]);
   function polishMatch(raw, meaning) {
     const u = plNorm(raw);
     if (!u) return false;
@@ -5749,6 +5826,14 @@ window.onerror = function (m, s, l, c) {
       </div>
 
       <div class="box" style="gap:8px">
+        <div class="lbl">Język aplikacji · App language</div>
+        <div class="seg">
+          <button type="button" data-lang="pl" aria-pressed="${(window.GLOSA_LANG || "pl") === "pl"}">Polski</button>
+          <button type="button" data-lang="en" aria-pressed="${window.GLOSA_LANG === "en"}">English</button>
+        </div>
+      </div>
+
+      <div class="box" style="gap:8px">
         <div class="lbl">Kurs</div>
         <div class="seg">
           <button type="button" data-course="ja" aria-pressed="${COURSE === "ja"}">Japoński</button>
@@ -5786,6 +5871,8 @@ window.onerror = function (m, s, l, c) {
     <section class="card"><h2>Czytania kanji: KANJIDIC &amp; kanji-data</h2>
      <p>Słownik KANJIDIC (${a("https://www.edrdg.org/")}, CC BY-SA 4.0) oraz kanji-data (MIT).</p>
      ${full("kanji-data-MIT.txt", "Licencja MIT kanji-data")}</section>
+    <section class="card"><h2>English word glosses / Angielskie znaczenia słów</h2>
+     <p>JLPT vocabulary lists by Jonathan Waller (${a("https://www.tanos.co.uk/jlpt/")}, CC BY), via open-anki-jlpt-decks.</p></section>
     <section class="card"><h2>Hanzi Writer</h2>
      <p>Biblioteka Hanzi Writer 3.7.3 (MIT).</p>
      ${full("HanziWriter-MIT.txt", "Licencja MIT Hanzi Writer")}</section>`;
@@ -6133,6 +6220,10 @@ window.onerror = function (m, s, l, c) {
     if (ds.lessonGo) {
       const l = lessonById(ds.lessonGo);
       if (l) startLesson(l, ds.mode);
+      return;
+    }
+    if (ds.lang) {
+      if (ds.lang !== window.GLOSA_LANG && window.I18N) window.I18N.setLang(ds.lang);
       return;
     }
     if (ds.plans !== undefined) {
