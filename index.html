@@ -1390,6 +1390,34 @@ body.reduce-motion #view.enter > *, body.reduce-motion #view.enter .menu-list .m
 .ps-tools { display: flex; gap: 8px; align-items: center; justify-content: center; }
 .ps-tools .ps-save { flex: 1; max-width: 200px; min-height: 48px; display: inline-flex; gap: 8px; align-items: center; justify-content: center; }
 .ps-tools .ps-save svg { width: 20px; height: 20px; }
+/* Ścieżka */
+.pcard { display: grid; gap: 12px; }
+.punit { margin: 0 0 18px; }
+.punit.locked { opacity: 0.6; }
+.punit-h { display: flex; gap: 12px; align-items: center; }
+.punit-h > div { display: grid; }
+.punit-g { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; background: var(--seal); color: #fff; font-size: 24px; flex: none; }
+.ptrack { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 18px 0 6px; position: relative; }
+.pnode { position: relative; width: 68px; height: 68px; border-radius: 50%; border: 0; transform: translateX(var(--off)); font-size: 26px; cursor: pointer; color: #fff; background: var(--seal); box-shadow: 0 5px 0 rgba(0, 0, 0, 0.22); display: grid; place-items: center; }
+.pnode:active { transform: translateX(var(--off)) translateY(3px); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.22); }
+.pnode.locked { background: var(--line); color: var(--muted); font-size: 20px; box-shadow: 0 5px 0 rgba(0, 0, 0, 0.1); }
+.pnode.current { background: var(--indigo); outline: 4px solid color-mix(in srgb, var(--indigo) 30%, transparent); outline-offset: 4px; animation: pulse 1.8s ease-in-out infinite; }
+.pnode.test { border-radius: 18px; }
+.pcheck { position: absolute; right: -4px; bottom: -4px; width: 26px; height: 26px; border-radius: 50%; background: var(--ok); color: #fff; display: grid; place-items: center; border: 2px solid var(--surface); }
+.pcheck svg { width: 15px; height: 15px; }
+.pfoka { position: relative; left: 0; transform: translateX(calc(var(--off) * -1)); margin: -6px 0 -4px; }
+.pmini { display: flex; gap: 6px; flex-wrap: wrap; }
+.pdot { width: 22px; height: 8px; border-radius: 99px; background: var(--line); }
+.pdot.done { background: var(--seal); }
+.pdot.now { background: var(--indigo); }
+.plist { margin: 0; padding-left: 18px; display: grid; gap: 4px; max-height: 40vh; overflow: auto; }
+@keyframes pulse { 50% { outline-offset: 8px; } }
+body.reduce-motion .pnode.current { animation: none; }
+.sod { color: var(--ink); }
+.hand-compare .model svg { width: 100%; height: 100%; }
+.hand-compare .model:has(svg) { width: auto; height: auto; min-width: 96px; min-height: 96px; }
+.ps-sod { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.ps-sod svg { border: 1.5px solid var(--line); border-radius: 12px; background: var(--surface-elev); }
 /* Plan dnia */
 .pbar { height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; max-width: 380px; }
 .pbar i { display: block; height: 100%; background: var(--seal); border-radius: 99px; transition: width 400ms; }
@@ -1629,6 +1657,21 @@ window.onerror = function (m, s, l, c) {
     plus: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>`,
     next: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>`,
   };
+  // wzór znaku z ponumerowanymi kreskami (numer stoi na początku kreski)
+  function strokeOrderSVG(ch, px) {
+    const sd = (window.STROKES && window.STROKES[ch]) || null;
+    if (!sd || !sd.medians || !sd.strokes) return "";
+    const paths = sd.strokes.map((d) => `<path d="${d}"/>`).join("");
+    const nums = sd.medians
+      .map((m, i) => {
+        const [x, y] = m[0];
+        return `<g transform="translate(${x} ${900 - y})"><circle r="84" fill="var(--seal)" stroke="var(--surface)" stroke-width="14"/><text y="34" text-anchor="middle" font-size="100" font-weight="800" fill="#fff" font-family="sans-serif">${i + 1}</text></g>`;
+      })
+      .join("");
+    return `<svg class="sod" viewBox="0 0 1024 1024" width="${px}" height="${px}" role="img" aria-label="Kolejność kresek ${ch}"><g transform="matrix(1 0 0 -1 0 900)" fill="currentColor" opacity=".78">${paths}</g>${nums}</svg>`;
+  }
+  const orderMsg = (o) =>
+    o.count ? `ten znak ma ${o.m} kresek, a napisałeś ${o.n}` : o.wrong.length ? "zła kolejność kresek" : `kreska ${o.reversed.join(", ")} w złą stronę`;
   // przycisk z samym symbolem (napis w podpowiedzi i dla czytnika ekranu)
   const ib = (attrs, icon, label, cls) =>
     `<button class="ib${cls ? " " + cls : ""}" type="button" ${attrs} aria-label="${label}" title="${label}">${IC[icon] || icon}</button>`;
@@ -2096,6 +2139,10 @@ window.onerror = function (m, s, l, c) {
   }
   function curriculumOrder() {
     if (ZHC()) return interleave(ZHD.hall || [], ZHD.pall || [], 4);
+    // nowy materiał w sesji dnia idzie w kolejności ścieżki
+    const seen = new Set();
+    const fromPath = path().all.filter((l) => !l.test).flatMap((l) => l.items).filter((x) => !seen.has(x.k) && seen.add(x.k));
+    if (fromPath.length) return fromPath;
     const one = (l) => l.filter((x) => x.q.length === 1);
     const multi = (l) => l.filter((x) => x.q.length > 1);
     const ph = DECKS.zwroty.all;
@@ -2179,6 +2226,7 @@ window.onerror = function (m, s, l, c) {
     if (!e) return;
     if (ok) {
       e.done = true;
+      e.ok = true;
       if (!e.isNew) {
         const d = daily();
         d.rev++;
@@ -2252,6 +2300,8 @@ window.onerror = function (m, s, l, c) {
 
     return `
       ${sessionBandHTML()}
+
+      ${pathCardHTML()}
 
       <section class="stats" aria-label="Postęp">
         <div class="stat-box"><b>${todayHist.reviews}</b><span>powtórek dzisiaj</span></div>
@@ -2664,6 +2714,7 @@ window.onerror = function (m, s, l, c) {
     });
     const marks = chars.map(() => "ok");
     const errors = [];
+    const pairs = [];
     const segState = new Map();
     best.ops.forEach((o) => {
       const seg = o.u && o.u.seg;
@@ -2672,6 +2723,7 @@ window.onerror = function (m, s, l, c) {
         if (o.type === "bad" || o.type === "missing" || o.type === "script") st.ok = false;
         segState.set(seg, st);
       }
+      if (o.type === "ok" || o.type === "unsure") pairs.push({ i: o.i, c: o.u.c });
       if (o.type === "ok") return;
       if (o.type === "unsure") { marks[o.i] = "unsure"; return; }
       if (o.type === "extra") { marks[o.i] = "bad"; errors.push({ cat: "word", txt: `Zbędny znak „${chars[o.i].c}”` }); return; }
@@ -2701,7 +2753,7 @@ window.onerror = function (m, s, l, c) {
     const units = best.v.units.length;
     if (errs.length > 3 && best.score > Math.max(3, units * 0.6))
       return { ok: false, marks, errors: [{ cat: "word", txt: "To zupełnie inne zdanie — porównaj z poprawnym zapisem." }], unsure: 0, kanjiDone: kanjiDone.map((x) => ({ seg: x.seg, ok: false })), recognized: chars.map((c) => c.c).join("") };
-    return { ok: errs.length === 0, marks, errors: errs, unsure, kanjiDone, recognized: chars.map((c) => c.c).join("") };
+    return { ok: errs.length === 0, marks, errors: errs, unsure, kanjiDone, pairs, recognized: chars.map((c) => c.c).join("") };
   }
 
   function psStart(mode) {
@@ -2717,7 +2769,7 @@ window.onerror = function (m, s, l, c) {
     if (!PS.queue[PS.i]) {
       return `<section class="card bz-end"><div class="prompt jp">${PS.ok === PS.queue.length ? "完璧" : "お疲れ"}</div>
         <p><b>${PS.ok} / ${PS.queue.length}</b> zdań bez błędu</p>
-        <div class="row"><button class="btn primary-cta" type="button" data-ps-again>Jeszcze raz</button></div></section>`;
+        <div class="row">${PS.lesson ? `<a class="btn primary-cta" href="#sciezka">Wróć do ścieżki</a>` : `<button class="btn primary-cta" type="button" data-ps-again>Jeszcze raz</button>`}</div></section>`;
     }
     const it = PS.queue[PS.i];
     const top = `<div class="bz-top"><span class="small">${PS.i + 1} / ${PS.queue.length}</span></div><p class="bz-pl">${esc(it.pl)}</p>`;
@@ -2760,7 +2812,7 @@ window.onerror = function (m, s, l, c) {
         ? `<div class="ps-row">${PS.chars.map((c, n) => `<span class="ps-th ${cls(n)}"><img src="${c.img}" alt=""></span>`).join("")}</div>
            <p class="small">Rozpoznałem: <span class="jp" style="font-size:1.2rem">${esc(r.recognized) || "—"}</span></p>`
         : `<p class="jp ps-typed">${PS.chars.map((c, n) => `<span class="${cls(n)}">${esc(c.c)}</span>`).join("") || "—"}</p>`;
-    const cats = { gram: "Gramatyka", word: "Słówko", kanji: "Kanji" };
+    const cats = { gram: "Gramatyka", word: "Słówko", kanji: "Kanji", kreski: "Kreski" };
     const kanaOnly = plain(kanaOf(it.m)).replace(/\s/g, "");
     return `<section class="card stack">
       ${written}
@@ -2769,6 +2821,7 @@ window.onerror = function (m, s, l, c) {
         <div class="small"><i>${romaji(kanaOnly)}</i>${kanaOnly !== plain(it.m).replace(/\s/g, "") ? ` · też dobrze: <span class="jp">${kanaOnly}</span>` : ""}</div>
       </div>
       ${r.errors.length ? `<ul class="ps-errs">${r.errors.map((e) => `<li><span class="scr h">${cats[e.cat]}</span> ${e.txt}</li>`).join("")}</ul>` : ""}
+      ${r.sod && r.sod.length ? `<div class="ps-sod">${r.sod.map((c) => strokeOrderSVG(c, 84) || `<span class="jp">${c}</span>`).join("")}</div>` : ""}
       ${r.unsure && !r.giveup ? `<p class="small">Żółte znaki trudno było odczytać — nie liczę ich jako błąd, ale pisz je staranniej.</p>` : ""}
       <div class="row">${sayBtn(kanaOnly)}${!r.ok && !r.giveup && !r.override ? ib("data-ps-ok", "check", "Uznaj — napisałem dobrze", "okb") : ""}<button class="btn primary-cta" type="button" data-ps-next>Dalej</button></div>
     </section>`;
@@ -2786,6 +2839,21 @@ window.onerror = function (m, s, l, c) {
     if (PS.mode === "klaw") PS.chars = [...(PS.typed || "").replace(/[\s。、？！?!.,]/g, "")].map((c) => ({ c, alts: [c], conf: 1 }));
     const r = giveup ? { ok: false, giveup: true, marks: PS.chars.map(() => "bad"), errors: [], unsure: 0, kanjiDone: [], recognized: PS.chars.map((c) => c.c).join("") } : psEvaluate(it, PS.chars);
     PS.res = r;
+    // kolejność i kierunek kresek w każdym rozpoznanym znaku
+    r.sod = [];
+    if (PS.mode === "reka" && !giveup && window.HandRecog.checkOrder)
+      (r.pairs || []).forEach(({ i, c }) => {
+        const ch = PS.chars[i];
+        const o = ch && ch.strokes ? window.HandRecog.checkOrder(ch.strokes, c) : null;
+        if (!o || o.ok) return;
+        r.marks[i] = "bad";
+        r.errors.push({ cat: "kreski", txt: `„${c}”: ${orderMsg(o)}` });
+        r.sod.push(c);
+        const key = ["hiragana:", "katakana:", "kanji:"].map((p) => p + c).find((k) => ALL_BY_KEY[k]);
+        if (key) markW(key, false, 1);
+        r.ok = false;
+      });
+    r.sod.forEach((c) => !(window.STROKES && window.STROKES[c]) && getStrokeDataForChar(c).then(() => PS && PS.res === r && render()));
     mark(it.k, r.ok, "write", r.ok ? (r.unsure ? 3 : 4) : 1);
     r.kanjiDone.forEach(({ seg, ok }) => [...seg.kanji].forEach((c) => KMAP[c] && markW("kanji:" + c, ok, ok ? 3 : 1)));
     r.errors.filter((e) => e.cat === "gram").forEach((e) => { try { E.FSRS.recordReview("gr:" + e.p, "recog", 1); } catch (_) {} });
@@ -2853,6 +2921,10 @@ window.onerror = function (m, s, l, c) {
     } else if (ds.psNext !== undefined) {
       if (PS.res && !PS.res.ok) PS.queue.push(PS.queue[PS.i]); // błędne zdanie wraca na koniec
       PS.i++;
+      if (PS.lesson && !PS.queue[PS.i] && !PS.lessonDone) {
+        PS.lessonDone = true;
+        finishLesson(PS.lesson);
+      }
       Object.assign(PS, { chars: [], sel: null, ins: false, small: false, res: null, msg: "", typed: "" });
       if (psPad) psPad.strokes = [];
       if (PS.queue.length > 15) PS.queue.length = Math.max(PS.i, 15);
@@ -2870,6 +2942,227 @@ window.onerror = function (m, s, l, c) {
       <a class="menu-item" href="#zd-reka"><span class="mi-glyph jp">筆</span><span class="mi-name">Ręcznie, znak po znaku</span><span class="mi-sub">${done} / ${PS_ITEMS.length}</span><span class="mi-arrow" aria-hidden="true">›</span></a>
       <a class="menu-item" href="#zd-klaw"><span class="mi-glyph jp">鍵</span><span class="mi-name">Japońską klawiaturą</span><span class="mi-sub"></span><span class="mi-arrow" aria-hidden="true">›</span></a>
       </nav>`;
+  }
+
+  /* ---------- Ścieżka: działy po kolei, kolejne odblokowują się po ukończeniu poprzednich ---------- */
+  const PHR = {};
+  (DECKS.zwroty.all || []).forEach((x) => (PHR[plain(x.m).replace(/\s/g, "")] = x));
+  const phr = (...ps) => ps.map((p) => PHR[p.replace(/\s/g, "")]).filter(Boolean);
+  const kg = (deck, ...ids) => ids.flatMap((id) => (DECKS[deck].groups.find((g) => g.id === id) || { items: [] }).items);
+  const bzKeys = (set, from, to) => PS_ITEMS.filter((x) => x.k.startsWith("ps:bz:" + set + ":")).slice(from, to);
+  const PATH_UNITS_JA = [
+    { name: "Powitania", glyph: "挨", lessons: [
+      ["あ い う え お", kg("hiragana", "basic0")],
+      ["か き く け こ", kg("hiragana", "basic1")],
+      ["Dzień dobry", phr("おはようございます", "こんにちは", "こんばんは")],
+      ["さ し す せ そ", kg("hiragana", "basic2")],
+      ["Na pożegnanie", phr("おやすみなさい", "さようなら", "じゃあね")],
+    ] },
+    { name: "Grzeczności", glyph: "礼", lessons: [
+      ["た ち つ て と", kg("hiragana", "basic3")],
+      ["Dziękuję i przepraszam", phr("ありがとうございます", "どういたしまして", "すみません", "ごめんなさい")],
+      ["な に ぬ ね の", kg("hiragana", "basic4")],
+      ["Tak, nie, smacznego", phr("はい", "いいえ", "いただきます", "ごちそうさまでした")],
+      ["は ひ ふ へ ほ", kg("hiragana", "basic5")],
+    ] },
+    { name: "Cała hiragana", glyph: "あ", lessons: [
+      ["ま み む め も", kg("hiragana", "basic6")],
+      ["や ゆ よ · ら り る れ ろ", kg("hiragana", "basic7", "basic8")],
+      ["わ を ん", kg("hiragana", "basic9", "basic10")],
+      ["が ざ だ", kg("hiragana", "daku0", "daku1", "daku2")],
+      ["ば ぱ", kg("hiragana", "daku3", "daku4")],
+    ] },
+    { name: "Przedstawianie się", glyph: "名", lessons: [
+      ["きゃ しゃ ちゃ にゃ", kg("hiragana", "yoon0", "yoon1", "yoon2", "yoon3")],
+      ["Miło mi", phr("初めまして", "お名前は 何ですか", "よろしく お願いします")],
+      ["ひゃ みゃ りゃ…", kg("hiragana", "yoon4", "yoon5", "yoon6", "yoon7", "yoon8", "yoon9", "yoon10")],
+      ["Jak się masz?", phr("お元気ですか", "元気です", "私は 学生です")],
+      ["Piszę zdania: kim jestem", null, bzKeys("tw", 0, 5)],
+    ] },
+    { name: "Katakana", glyph: "ア", lessons: [
+      ["ア イ ウ エ オ · カ…", kg("katakana", "basic0", "basic1")],
+      ["サ… · タ…", kg("katakana", "basic2", "basic3")],
+      ["ナ… · ハ…", kg("katakana", "basic4", "basic5")],
+      ["マ… · ヤ… · ラ…", kg("katakana", "basic6", "basic7", "basic8")],
+      ["ワ ヲ ン · ガ ザ ダ バ パ", kg("katakana", "basic9", "basic10", "daku0", "daku1", "daku2", "daku3", "daku4")],
+    ] },
+    { name: "W podróży", glyph: "旅", lessons: [
+      ["Kim jestem, skąd jestem", phr("わたしは ミハウです", "ポーランドから きました")],
+      ["Gdzie jest…?", phr("トイレは どこですか", "ホテルは どこですか", "コンビニは ありますか")],
+      ["キャ シャ チャ…", kg("katakana", "yoon0", "yoon1", "yoon2", "yoon3", "yoon4", "yoon5")],
+      ["Poproszę…", phr("コーヒーを ください", "メニューを おねがいします", "カードで いいですか", "タクシーを よんで ください")],
+      ["Piszę zdania: pytania", null, bzKeys("py", 0, 5)],
+    ] },
+    { name: "Zakupy i jedzenie", glyph: "食", lessons: [
+      ["Co to jest?", phr("これは パンですか", "これは 何ですか", "これは いくらですか")],
+      ["Pierwsze kanji", (KG[1] || []).slice(0, 8)],
+      ["W restauracji", phr("水を ください", "一つ ください", "お会計を お願いします", "とても おいしいです")],
+      ["Co lubię", phr("ゲームが すきです", "テレビを みます", "日本の 食べ物が 好きです")],
+      ["Piszę zdania: przeczenia", null, bzKeys("pr", 0, 5)],
+    ] },
+    { name: "Rozmowa", glyph: "話", lessons: [
+      ["Rozumiem, nie rozumiem", phr("分かりました", "分かりません", "もう 一度 お願いします")],
+      ["Kanji: liczby i dni", (KG[1] || []).slice(8, 16)],
+      ["Język", phr("日本語が 少し 分かります", "英語が 分かりますか", "ゆっくり 話して ください", "日本語を 勉強して います")],
+      ["Czas i miejsce", phr("今 何時ですか", "駅は どこですか", "また 明日", "東京に 行きたいです")],
+      ["Prośby", phr("写真を 撮っても いいですか", "今日は 暑いですね", "大丈夫です", "助けて ください")],
+      ["Piszę zdania: przyszłość", null, bzKeys("pz", 0, 5)],
+    ] },
+  ];
+  function buildPath() {
+    if (ZHC()) {
+      const units = [];
+      const hz = ZHD.hall || [], ph = ZHD.pall || [];
+      for (let i = 0, u = 0; i < hz.length; i += 32, u++) {
+        const lessons = [];
+        for (let j = i; j < Math.min(i + 32, hz.length); j += 8) lessons.push(["Znaki " + (j + 1) + "–" + Math.min(j + 8, hz.length), hz.slice(j, j + 8)]);
+        const pp = ph.slice(u * 4, u * 4 + 4);
+        if (pp.length) lessons.splice(2, 0, ["Zwroty", pp]);
+        units.push({ name: "Dział " + (u + 1), glyph: "字", lessons });
+      }
+      return finishPath(units);
+    }
+    const units = PATH_UNITS_JA.slice();
+    const usedK1 = 16;
+    for (let g = 1; g <= 9; g++) {
+      const list = (KG[g] || []).slice(g === 1 ? usedK1 : 0);
+      for (let i = 0, part = 1; i < list.length; i += 40, part++) {
+        const lessons = [];
+        for (let j = i; j < Math.min(i + 40, list.length); j += 8) lessons.push([list.slice(j, j + 8).map((x) => x.q).join(" "), list.slice(j, j + 8)]);
+        units.push({ name: `Kanji ${g > 6 ? "gimnazjum " + (g - 6) : "klasa " + g}${list.length > 40 ? ", część " + part : ""}`, glyph: (list[i] || {}).q || "字", lessons });
+      }
+    }
+    return finishPath(units);
+  }
+  function finishPath(units) {
+    const all = [];
+    units.forEach((u, ui) => {
+      u.id = ui;
+      u.list = u.lessons
+        .filter((l) => (l[1] && l[1].length) || (l[2] && l[2].length))
+        .map((l, li) => ({ id: `${ZHC() ? "z" : "j"}${ui}.${li}`, unit: u, title: l[0], items: l[1] || [], ps: l[2] || null }));
+      const unitItems = u.list.flatMap((l) => l.items);
+      if (unitItems.length) u.list.push({ id: `${ZHC() ? "z" : "j"}${ui}.t`, unit: u, title: "Sprawdzian działu", items: unitItems, test: true });
+      u.list.forEach((l) => all.push(l));
+    });
+    return { units, all };
+  }
+  let PATH = null;
+  const path = () => PATH || (PATH = buildPath());
+  let pathDone = store.get("pathDone", {});
+  function lessonDone(l) {
+    if (pathDone[l.id]) return true;
+    // kto już to umie (np. z wcześniejszej nauki), nie musi przechodzić lekcji od nowa
+    if (l.ps) return l.ps.every((x) => sc(x.k) >= 3);
+    return l.items.length > 0 && l.items.every((x) => sc(x.k) >= 3);
+  }
+  function pathState() {
+    const P = path();
+    let cur = null;
+    const st = {};
+    P.all.forEach((l) => {
+      const d = lessonDone(l);
+      st[l.id] = d ? "done" : cur ? "locked" : "current";
+      if (!d && !cur) cur = l;
+    });
+    return { P, st, cur };
+  }
+  function lessonGlyph(l) {
+    if (l.test) return "試";
+    if (l.ps) return "書";
+    const f = l.items[0];
+    return f ? (f.kind === "phrase" ? "話" : f.q.slice(0, 1)) : "・";
+  }
+  function nodeHTML(l, state, i) {
+    const off = [0, 46, 70, 46, 0, -46, -70, -46][i % 8];
+    return `<button type="button" class="pnode ${state}${l.test ? " test" : ""}" data-lesson="${l.id}" style="--off:${off}px" aria-label="${esc(l.title)}${state === "locked" ? " (zablokowane)" : state === "done" ? " (ukończone)" : ""}">
+        <span class="jp">${state === "locked" ? "🔒" : lessonGlyph(l)}</span>${state === "done" ? `<i class="pcheck">${IC.check}</i>` : ""}
+      </button>${state === "current" ? `<span class="pfoka" style="--off:${off}px">${E.MASCOT.foka("happy", 64)}</span>` : ""}`;
+  }
+  function unitHTML(u, st) {
+    const done = u.list.filter((l) => st[l.id] === "done").length;
+    const locked = u.list.every((l) => st[l.id] === "locked");
+    return `<section class="punit${locked ? " locked" : ""}" id="unit-${u.id}">
+        <div class="punit-h"><span class="jp punit-g">${u.glyph}</span><div><b>${esc(u.name)}</b><span class="small">${done} / ${u.list.length} lekcji</span></div></div>
+        <div class="ptrack">${u.list.map((l, i) => nodeHTML(l, st[l.id], i)).join("")}</div>
+      </section>`;
+  }
+  function pathHTML() {
+    const { P, st, cur } = pathState();
+    return `${backBar("start", "Start", "Ścieżka")}
+      <p class="small" style="margin:0 4px 12px">Działy po kolei — następna lekcja otwiera się, gdy skończysz poprzednią. To, co już umiesz, zalicza się samo.</p>
+      ${P.units.map((u) => unitHTML(u, st)).join("")}
+      ${cur ? "" : `<p class="lead" style="text-align:center">Cała ścieżka ukończona!</p>`}`;
+  }
+  function pathCardHTML() {
+    const { st, cur } = pathState();
+    if (!cur) return "";
+    const u = cur.unit;
+    const done = u.list.filter((l) => st[l.id] === "done").length;
+    return `<section class="card pcard">
+        <div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">Ścieżka</h2><a class="small" href="#sciezka">Cała ścieżka ›</a></div>
+        <div class="punit-h"><span class="jp punit-g">${u.glyph}</span><div><b>Dział ${u.id + 1}: ${esc(u.name)}</b><span class="small">${done} / ${u.list.length} lekcji</span></div></div>
+        <div class="pmini">${u.list.map((l) => `<span class="pdot ${st[l.id]}${l === cur ? " now" : ""}"></span>`).join("")}</div>
+        <button class="btn primary-cta" type="button" data-lesson="${cur.id}">${cur.test ? "Sprawdzian działu" : "Lekcja: " + esc(cur.title)}</button>
+      </section>`;
+  }
+  function lessonById(id) {
+    return path().all.find((l) => l.id === id);
+  }
+  function lessonSheetHTML(l, state) {
+    const preview = l.ps
+      ? l.ps.map((x) => `<li>${esc(x.pl)}</li>`).join("")
+      : l.test
+      ? `<li>${l.items.length > 12 ? "12 losowych rzeczy" : l.items.length + " rzeczy"} z całego działu, każda musi być dobrze</li>`
+      : l.items.map((x) => `<li><span class="jp">${x.kind === "phrase" ? plain(x.q) : x.q}</span> <span class="small">${esc(x.a)}</span></li>`).join("");
+    const locked = state === "locked";
+    return `<div class="stack" style="gap:10px">
+      <div class="row" style="justify-content:space-between;align-items:center"><span class="small">Dział ${l.unit.id + 1}: ${esc(l.unit.name)}</span><button class="close" type="button" data-close>Zamknij</button></div>
+      <h2 style="margin:0">${esc(l.title)}</h2>
+      <ul class="plist">${preview}</ul>
+      ${
+        locked
+          ? `<p class="small">Najpierw skończ wcześniejsze lekcje.</p>`
+          : l.ps
+          ? `<p class="small">Napisz każde zdanie po japońsku.</p><div class="row"><button class="btn ghost wi" type="button" data-lesson-go="${l.id}" data-mode="klaw">Klawiaturą</button><button class="btn primary-cta wi" type="button" data-lesson-go="${l.id}" data-mode="reka">${IC.brush}Ręcznie</button></div>`
+          : `<button class="btn primary-cta" type="button" data-lesson-go="${l.id}">${state === "done" ? "Powtórz lekcję" : "Zacznij"}</button>`
+      }
+    </div>`;
+  }
+  function startLesson(l, mode) {
+    if (l.ps) {
+      PS = { mode: mode || "reka", queue: l.ps.slice(), i: 0, ok: 0, chars: [], sel: null, ins: false, small: false, res: null, msg: "", lesson: l.id };
+      closeSheet();
+      if (psPad) psPad.strokes = [];
+      location.hash = "zdl";
+      return;
+    }
+    const items = l.test ? shuffle(l.items).slice(0, 12) : l.items;
+    const sq = items.map((x) => ({ x, isNew: !l.test && !sc(x.k) && !sw(x.k), wait: 0, done: false }));
+    closeSheet();
+    T = {
+      session: true,
+      lesson: l.id,
+      sq,
+      deck: { id: "lesson", kind: "mix", groups: [], all: items, qName: "oryginał", aName: "polski" },
+      sel: new Set(),
+      mode: "quiz",
+      dir: 2,
+      ok: 0,
+      n: 0,
+      cur: null,
+      run: true,
+    };
+    nextQ();
+    redraw();
+  }
+  function finishLesson(id) {
+    pathDone[id] = true;
+    store.set("pathDone", pathDone);
+    const l = lessonById(id);
+    E.FX.complete();
+    petals("burst");
+    toast("合格", l && l.test ? "Dział zaliczony!" : "Lekcja ukończona!", l ? l.title : "");
   }
 
   function menuItem(href, glyph, name, list) {
@@ -3493,7 +3786,10 @@ window.onerror = function (m, s, l, c) {
     }
     const navBar = backBar("nauka", "Nauka", sec[2]);
     if (naukaSec === "budowa") return navBar + bzMenuHTML();
-    if (naukaSec === "zd") return PS ? backBar("zd", "Piszę zdania", PS.mode === "reka" ? "Ręcznie" : "Klawiaturą") + psExerciseHTML() : navBar + psMenuHTML();
+    if (naukaSec === "zd")
+      return PS
+        ? (PS.lesson ? backBar("sciezka", "Ścieżka", PS.mode === "reka" ? "Ręcznie" : "Klawiaturą") : backBar("zd", "Piszę zdania", PS.mode === "reka" ? "Ręcznie" : "Klawiaturą")) + psExerciseHTML()
+        : navBar + psMenuHTML();
 
     if (naukaSec === "gramatyka") {
       return navBar + grammarHTML();
@@ -5056,13 +5352,21 @@ window.onerror = function (m, s, l, c) {
           </div>`;
       }
       const a = T.answered;
-      const verdict = a.state === "ok" ? `<span class="v ok">Dobrze</span>` : a.state === "ask" ? `<span class="v">Nie jestem pewien</span>` : `<span class="v bad">${a.giveup ? "Do powtórki" : "Inny znak"}</span>`;
+      const verdict =
+        a.state === "ok"
+          ? `<span class="v ok">Dobrze</span>`
+          : a.state === "ask"
+          ? `<span class="v">Nie jestem pewien</span>`
+          : a.state === "order"
+          ? `<span class="v bad">Dobry znak, ale ${orderMsg(a.ord)}</span>`
+          : `<span class="v bad">${a.giveup ? "Do powtórki" : "Inny znak"}</span>`;
+      const sod = strokeOrderSVG(x.q, a.state === "order" ? 128 : 96);
       return `${what}
         <div class="hand-compare">
           ${a.img ? `<figure><img src="${a.img}" alt="Twój znak"><figcaption>twój</figcaption></figure>` : ""}
-          <figure><div class="jp model">${x.q}</div><figcaption>wzór</figcaption></figure>
+          <figure>${sod ? `<div class="model">${sod}</div>` : `<div class="jp model">${x.q}</div>`}<figcaption>kolejność kresek</figcaption></figure>
         </div>
-        <div class="fb">${verdict}${a.rec && a.state !== "ok" ? `<br>Rozpoznałem: <span class="jp" style="font-size:1.4rem">${a.rec}</span>` : ""}</div>
+        <div class="fb">${verdict}${a.rec && a.state !== "ok" && a.state !== "order" ? `<br>Rozpoznałem: <span class="jp" style="font-size:1.4rem">${a.rec}</span>` : ""}</div>
         ${
           a.state === "ask"
             ? `<div class="row"><button class="btn ghost" type="button" data-hp-judge="0">Nie, to inny znak</button><button class="btn primary-cta" type="button" data-hp-judge="1">Tak, to ${x.q}</button></div>`
@@ -5281,6 +5585,14 @@ window.onerror = function (m, s, l, c) {
         const left = pool().length;
         T.run = false;
         setFocus(false, "");
+        if (T.lesson) {
+          const allOk = T.sq.every((e) => e.ok);
+          if (allOk) finishLesson(T.lesson);
+          else toast("惜", "Prawie!", "Kilka rzeczy nie wyszło — powtórz lekcję, żeby ją zaliczyć.");
+          T.lesson = null;
+          render();
+          return;
+        }
         render();
         if (n) {
           E.FX.complete();
@@ -5511,6 +5823,9 @@ window.onerror = function (m, s, l, c) {
       route = "nauka";
       naukaSec = "budowa";
       bzStart(h.slice(3));
+    } else if (h === "zdl" && PS) {
+      route = "nauka";
+      naukaSec = "zd";
     } else if (h === "zd-reka" || h === "zd-klaw") {
       route = "nauka";
       naukaSec = "zd";
@@ -5526,7 +5841,7 @@ window.onerror = function (m, s, l, c) {
       }
       WStudio.inPool = true;
     } else if (
-      ["start", "powtorka", "nauka", "pisanie", "postepy", "licencje"].includes(h)
+      ["start", "powtorka", "nauka", "pisanie", "postepy", "licencje", "sciezka"].includes(h)
     ) {
       route = h;
       if (h === "nauka") naukaSec = null;
@@ -5583,6 +5898,14 @@ window.onerror = function (m, s, l, c) {
     }
     if (route === "licencje") {
       view.innerHTML = licensesHTML();
+      return;
+    }
+    if (route === "sciezka") {
+      view.innerHTML = pathHTML();
+      setTimeout(() => {
+        const c = document.querySelector(".pnode.current");
+        if (c) c.scrollIntoView({ block: "center" });
+      }, 30);
       return;
     }
   }
@@ -5801,6 +6124,16 @@ window.onerror = function (m, s, l, c) {
       if (ds.sessionStart !== undefined && startSession(false)) return;
       if (startSession(true)) return;
       ds.continueStudy = "";
+    }
+    if (ds.lesson) {
+      const l = lessonById(ds.lesson);
+      if (l) openSheet(lessonSheetHTML(l, pathState().st[l.id]));
+      return;
+    }
+    if (ds.lessonGo) {
+      const l = lessonById(ds.lessonGo);
+      if (l) startLesson(l, ds.mode);
+      return;
     }
     if (ds.plans !== undefined) {
       openSheet(plansHTML());
@@ -6234,18 +6567,22 @@ window.onerror = function (m, s, l, c) {
       const same = (c) => c && (window.HandRecog.isLookalike(c, x.q) || window.HandRecog.sizePair(c, x.q));
       const hit = r.candidates.find((c) => same(c.ch));
       const gap = hit && top ? hit.score - top.score : 1;
-      const state = top && same(top.ch) ? (r.confidence >= 0.25 ? "ok" : "ask") : gap <= 0.03 ? "ok" : gap <= 0.07 ? "ask" : "bad";
-      T.answered = { draw: true, state, rec: top ? top.ch : "", img: handPad.thumbnail(96), conf: r.confidence };
+      let state = top && same(top.ch) ? (r.confidence >= 0.25 ? "ok" : "ask") : gap <= 0.03 ? "ok" : gap <= 0.07 ? "ask" : "bad";
+      const ord = window.HandRecog.checkOrder ? window.HandRecog.checkOrder(handPad.snapshot(), x.q) : null;
+      if (state === "ok" && ord && !ord.ok) state = "order";
+      T.answered = { draw: true, state, ord, rec: top ? top.ch : "", img: handPad.thumbnail(96), conf: r.confidence };
+      if (!(window.STROKES && window.STROKES[x.q])) getStrokeDataForChar(x.q).then(() => T && T.cur === x && redraw());
       if (state !== "ask") finishHand(state === "ok", r.confidence >= 0.7 ? 4 : 3);
     } else if (ds.hpJudge !== undefined) {
       if (!T.answered || !T.answered.draw) return;
       const wasBad = T.answered.state === "bad";
       T.answered.state = ds.hpJudge === "1" ? "ok" : "bad";
+      if (!wasBad && T.answered.state === "ok" && T.answered.ord && !T.answered.ord.ok) T.answered.state = "order";
       if (wasBad) {
         // poprawka po wcześniej zapisanym błędzie
         markW(T.cur.k, true, 2);
         T.ok++;
-      } else finishHand(ds.hpJudge === "1", 3);
+      } else finishHand(T.answered.state === "ok", 3);
     } else if (ds.qpadUndo !== undefined && activeSumiPad) {
       activeSumiPad.undo();
       return;
@@ -6436,7 +6773,7 @@ window.onerror = function (m, s, l, c) {
   drawScenery();
   window.addEventListener("hashchange", () => {
     const h = location.hash.slice(1);
-    window.__cameFromMenu = ["nauka", "pisanie", "budowa", "zd"].includes(lastHash) && h !== lastHash;
+    window.__cameFromMenu = ["nauka", "pisanie", "budowa", "zd", "sciezka"].includes(lastHash) && h !== lastHash;
   }, true);
   window.addEventListener("hashchange", go);
   if (checkBadges()) store.set("game", G);

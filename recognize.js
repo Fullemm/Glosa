@@ -166,6 +166,53 @@
     return { candidates: res.slice(0, top), confidence };
   }
 
+  /**
+   * Sprawdza kolejność i kierunek kresek względem wzoru znaku `ch`.
+   * Zwraca null, gdy brak wzoru; inaczej {ok, count, n, m, wrong:[nr kreski], reversed:[nr kreski]}.
+   * Ocena jest ostrożna: zgłasza błąd tylko wtedy, gdy wyraźnie widać inną kolejność lub odwrotny kierunek.
+   */
+  const COUNT_VARIANTS = "きさそふりゆやこけはほもゃゅょキサソ";
+  function checkOrder(strokes, ch) {
+    const t = templates().find((x) => x.ch === ch);
+    if (!t || !strokes || !strokes.length) return null;
+    const U = normalize(strokes).strokes;
+    const Tm = t.strokes;
+    const n = U.length, m = Tm.length;
+    if (n !== m) {
+      const lenient = COUNT_VARIANTS.includes(ch) && Math.abs(n - m) === 1;
+      return { ok: lenient, count: !lenient, n, m, wrong: [], reversed: [] };
+    }
+    const rev = (s) => s.slice().reverse();
+    const F = U.map((u) => Tm.map((tt) => dist(u, tt)));
+    const R = U.map((u) => Tm.map((tt) => dist(u, rev(tt))));
+    const C = F.map((row, i) => row.map((f, j) => Math.min(f, R[i][j])));
+    const pairs = [];
+    for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) pairs.push([C[i][j], i, j]);
+    pairs.sort((a, b) => a[0] - b[0]);
+    const asg = new Array(n).fill(-1), used = new Set();
+    let greedy = 0;
+    for (const [c, i, j] of pairs) {
+      if (asg[i] >= 0 || used.has(j)) continue;
+      asg[i] = j;
+      used.add(j);
+      greedy += c;
+    }
+    let ident = 0;
+    for (let i = 0; i < n; i++) ident += C[i][i];
+    const wrong = [];
+    // inna kolejność tylko wtedy, gdy przypisanie „po kolei” pasuje wyraźnie gorzej
+    if ((ident - greedy) / n > 0.025) asg.forEach((j, i) => j !== i && wrong.push(i + 1));
+    const reversed = [];
+    for (let i = 0; i < n; i++) {
+      const j = wrong.length ? asg[i] : i;
+      const f = F[i][j], r = R[i][j];
+      // krótkie kropki i kreski są nieistotne kierunkowo
+      const len = Math.hypot(Tm[j][0][0] - Tm[j][N - 1][0], Tm[j][0][1] - Tm[j][N - 1][1]);
+      if (len > 0.12 && r + 0.06 < f) reversed.push(i + 1);
+    }
+    return { ok: !wrong.length && !reversed.length, count: false, n, m, wrong, reversed };
+  }
+
   /* ---------- Pole do pisania: zapis kresek i miniatury ---------- */
   class HandPad {
     constructor(el, opts) {
@@ -270,5 +317,5 @@
     }
   }
 
-  global.HandRecog = { recognize, normalize, HandPad, isLookalike, sizePair, templates };
+  global.HandRecog = { recognize, normalize, HandPad, isLookalike, sizePair, templates, checkOrder };
 })(typeof window !== "undefined" ? window : globalThis);

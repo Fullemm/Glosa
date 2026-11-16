@@ -1,4 +1,4 @@
-const VERSION = "0375813cae88";
+const VERSION = "e5d9671ccc32";
 const CACHE = "nihongo-" + VERSION;
 const FONTS = "nihongo-fonts";
 const FILES = [
