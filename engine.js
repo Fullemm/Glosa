@@ -154,6 +154,30 @@
     root.setAttribute("data-pattern", prefs.bgPattern || "seigaiha");
     root.style.fontSize = (prefs.fontScale || 100) + "%";
     document.body.classList.toggle("reduce-motion", !!prefs.reducedMotion);
+    syncThemeColor();
+  }
+
+  // Paski systemowe telefonu (u góry i na dole) w kolorze aplikacji, także w trybie ciemnym
+  function syncThemeColor() {
+    try {
+      const c = getComputedStyle(document.documentElement).getPropertyValue("--surface").trim() || "#FAF8F5";
+      let metas = document.querySelectorAll('meta[name="theme-color"]');
+      if (!metas.length) {
+        const m = document.createElement("meta");
+        m.name = "theme-color";
+        document.head.appendChild(m);
+        metas = [m];
+      }
+      metas.forEach((m) => {
+        m.removeAttribute("media");
+        m.setAttribute("content", c);
+      });
+    } catch (e) {}
+  }
+  if (global.matchMedia) {
+    try {
+      global.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", syncThemeColor);
+    } catch (e) {}
   }
 
   let audioCtx = null;
@@ -1128,50 +1152,62 @@
   /* ==========================================================================
    * 9. MASKOTKA APLIKACJI — FOKA HANKO (Oryginalna + warianty tematyczne)
    * ========================================================================== */
+  let fokaN = 0;
   function foka(mood, size) {
     const sz = size || 110;
+    const IMG = global.FOKA_IMG;
+    if (IMG) {
+      const im = IMG[mood] || IMG.normal;
+      if (im) return `<img class="foka" src="${im.src}" width="${sz}" height="${Math.round((sz * im.h) / im.w)}" alt="" draggable="false">`;
+    }
     const h = Math.round(sz * 0.85);
+    const id = "fk" + ++fokaN;
+    const L = "#2c3048";
     const eyes =
       mood === "happy"
-        ? `<path d="M72 87q8-10 16 0M112 87q8-10 16 0" fill="none" stroke="#1b1c2b" stroke-width="3.5" stroke-linecap="round"/>`
+        ? `<path d="M70 88q8-10 16 0M114 88q8-10 16 0" fill="none" stroke="${L}" stroke-width="3.6" stroke-linecap="round"/>`
         : mood === "alert"
-        ? `<circle cx="80" cy="84" r="8.2" fill="#1b1c2b"/><circle cx="120" cy="84" r="8.2" fill="#1b1c2b"/><circle cx="82.8" cy="81.2" r="2.8" fill="#fff"/><circle cx="122.8" cy="81.2" r="2.8" fill="#fff"/><path d="M68 72l18 4M132 72l-18 4" stroke="#cf3a24" stroke-width="3.2" stroke-linecap="round"/>`
-        : `<circle cx="80" cy="85" r="7.5" fill="#1b1c2b"/><circle cx="120" cy="85" r="7.5" fill="#1b1c2b"/><circle cx="82.6" cy="82.2" r="2.4" fill="#fff"/><circle cx="122.6" cy="82.2" r="2.4" fill="#fff"/>`;
+        ? `<ellipse cx="78" cy="86" rx="8" ry="9.5" fill="${L}"/><ellipse cx="122" cy="86" rx="8" ry="9.5" fill="${L}"/><circle cx="81" cy="82" r="3.2" fill="#fff"/><circle cx="125" cy="82" r="3.2" fill="#fff"/><path d="M146 74q6 8 0 12q-6-4 0-12z" fill="#9fd3f0" stroke="${L}" stroke-width="1.6"/>`
+        : `<ellipse cx="78" cy="87" rx="7" ry="8.5" fill="${L}"/><ellipse cx="122" cy="87" rx="7" ry="8.5" fill="${L}"/><circle cx="80.6" cy="83.4" r="2.8" fill="#fff"/><circle cx="124.6" cy="83.4" r="2.8" fill="#fff"/><circle cx="76" cy="90.5" r="1.2" fill="#fff" opacity=".8"/><circle cx="120" cy="90.5" r="1.2" fill="#fff" opacity=".8"/>`;
 
-    // Dodatkowe rekwizyty zależne od wydania foki:
-    // "brush" -> Foka kaligraf z pędzlem Sumi i kropelką tuszu
-    // "sensei" -> Foka uczony w okrągłych okularach
-    // "alert" -> Foka z czerwoną chorągiewką / alarmem powtórek
     let prop = "";
     if (mood === "brush") {
       prop = `<g transform="rotate(-24 38 122)">
-        <rect x="28" y="72" width="8" height="62" rx="4" fill="#8c5a2b" stroke="#1b1c2b" stroke-width="2.8"/>
-        <rect x="27" y="122" width="10" height="8" rx="2" fill="#cf3a24" stroke="#1b1c2b" stroke-width="2.2"/>
-        <path d="M27 130c0 14 5 24 5 24s5-10 5-24z" fill="#1b1c2b"/>
-      </g>
-      <circle cx="62" cy="94" r="3" fill="#1b1c2b" opacity=".75"/>`;
+        <rect x="28" y="72" width="8" height="62" rx="4" fill="#8c5a2b" stroke="${L}" stroke-width="2.6"/>
+        <rect x="27" y="122" width="10" height="8" rx="2" fill="#d4402c" stroke="${L}" stroke-width="2.2"/>
+        <path d="M27 130c0 14 5 24 5 24s5-10 5-24z" fill="${L}"/>
+      </g>`;
     } else if (mood === "sensei") {
-      prop = `<g fill="none" stroke="#a8791a" stroke-width="3">
-        <circle cx="80" cy="85" r="13"/>
-        <circle cx="120" cy="85" r="13"/>
-        <path d="M93 85h14"/>
-      </g>`;
+      prop = `<g fill="rgba(255,255,255,.25)" stroke="#a8791a" stroke-width="3"><circle cx="78" cy="87" r="13"/><circle cx="122" cy="87" r="13"/><path d="M91 87h18" fill="none"/></g>`;
     } else if (mood === "alert") {
-      prop = `<g>
-        <circle cx="32" cy="52" r="16" fill="#cf3a24" stroke="#1b1c2b" stroke-width="2.8"/>
-        <text x="32" y="58" text-anchor="middle" fill="#fff" font-size="18" font-weight="800" font-family="sans-serif">!</text>
-      </g>`;
+      prop = `<g><circle cx="30" cy="50" r="15" fill="#d4402c" stroke="${L}" stroke-width="2.6"/><text x="30" y="56" text-anchor="middle" fill="#fff" font-size="18" font-weight="800" font-family="sans-serif">!</text></g>`;
     }
 
-    return `<svg class="foka" viewBox="0 0 200 170" width="${sz}" height="${h}" aria-hidden="true"><g stroke="#1b1c2b" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round">
-  <path d="M150 128c14-10 30-12 40-6-4 6-6 12-4 20-12 2-26-2-36-14z" fill="#dce3ea"/><ellipse cx="100" cy="130" rx="66" ry="32" fill="#f6f8fa"/>
-  <path d="M52 134c-14 2-24 10-28 20 12 4 26 0 36-8z" fill="#dce3ea"/><path d="M148 134c14 2 24 10 28 20-12 4-26 0-36-8z" fill="#dce3ea"/>
-  <circle cx="100" cy="78" r="50" fill="#f6f8fa"/>
-  <path d="M150 60q16 2 22 16l-9 3q-4-9-14-10zM150 62q8 10 6 24l-9-1q1-10-5-17z" fill="#cf3a24"/>
-  <path d="M53 59Q100 33 147 59L149 69Q100 45 51 69Z" fill="#cf3a24"/><circle cx="150" cy="63" r="6" fill="#cf3a24"/></g>
-  <circle cx="100" cy="51" r="3.4" fill="#fff"/><circle cx="68" cy="100" r="7" fill="#f2a093" opacity=".75"/><circle cx="132" cy="100" r="7" fill="#f2a093" opacity=".75"/>
-  ${eyes}<path d="M93 93h14q-1 8-7 8t-7-8z" fill="#1b1c2b"/>
-  <path d="M100 101v4M100 105q-6 8-13 2M100 105q6 8 13 2M76 104l-20-4M76 109l-20 4M124 104l20-4M124 109l20 4" fill="none" stroke="#1b1c2b" stroke-width="2.4" stroke-linecap="round"/>
+    return `<svg class="foka" viewBox="0 0 200 170" width="${sz}" height="${h}" aria-hidden="true">
+  <defs>
+    <radialGradient id="${id}b" cx="40%" cy="30%" r="80%"><stop offset="0" stop-color="#ffffff"/><stop offset=".65" stop-color="#eef2f6"/><stop offset="1" stop-color="#cfd9e4"/></radialGradient>
+    <linearGradient id="${id}r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e5533d"/><stop offset="1" stop-color="#bf3522"/></linearGradient>
+  </defs>
+  <ellipse cx="100" cy="161" rx="60" ry="6" fill="#000" opacity=".07"/>
+  <g stroke="${L}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M152 136c10-12 24-18 36-14-2 6-3 12-1 19-12 4-25 2-35-5z" fill="#d9e2ec"/>
+    <ellipse cx="100" cy="127" rx="62" ry="33" fill="url(#${id}b)"/>
+    <path d="M58 140c-12 1-21 8-25 16 10 4 22 1 31-6z" fill="#d9e2ec"/>
+    <path d="M142 140c12 1 21 8 25 16-10 4-22 1-31-6z" fill="#d9e2ec"/>
+    <circle cx="100" cy="78" r="50" fill="url(#${id}b)"/>
+    <path d="M151 60q17 0 25 13l-9 5q-5-8-15-9zM151 63q11 9 11 23l-9 1q-1-10-7-16z" fill="url(#${id}r)"/>
+    <path d="M53 59Q100 34 147 59L149 71Q100 47 51 71Z" fill="url(#${id}r)"/>
+    <circle cx="151" cy="64" r="6.5" fill="url(#${id}r)"/>
+  </g>
+  <circle cx="100" cy="53" r="6.6" fill="#fff" stroke="${L}" stroke-width="1.8"/><circle cx="100" cy="53" r="3" fill="#d4402c"/>
+  <path d="M70 46q14-8 26-9" stroke="#fff" stroke-width="2.4" stroke-linecap="round" fill="none" opacity=".35"/>
+  <ellipse cx="63" cy="101" rx="9" ry="5.5" fill="#f5a0a0" opacity=".55"/><ellipse cx="137" cy="101" rx="9" ry="5.5" fill="#f5a0a0" opacity=".55"/>
+  ${eyes}
+  <ellipse cx="91.5" cy="102" rx="10" ry="8" fill="#fff" stroke="#b9c4d0" stroke-width="1.4"/><ellipse cx="108.5" cy="102" rx="10" ry="8" fill="#fff" stroke="#b9c4d0" stroke-width="1.4"/>
+  <g fill="#9aa6b4"><circle cx="87" cy="101" r="1.1"/><circle cx="91" cy="105" r="1.1"/><circle cx="113" cy="101" r="1.1"/><circle cx="109" cy="105" r="1.1"/></g>
+  <path d="M94 95q6-4.5 12 0q-1.5 6.5-6 7.5q-4.5-1-6-7.5z" fill="${L}"/>
+  <path d="M95.5 111q2.25 2.6 4.5 0q2.25 2.6 4.5 0" fill="none" stroke="${L}" stroke-width="2" stroke-linecap="round"/>
+  <path d="M80 101l-20-3M80 106l-19 3M120 101l20-3M120 106l19 3" stroke="#9aa6b4" stroke-width="1.6" stroke-linecap="round"/>
   ${prop}</svg>`;
   }
 

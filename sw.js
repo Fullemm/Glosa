@@ -1,11 +1,13 @@
-const VERSION = "2936a2ed039c";
+const VERSION = "5953dad7276e";
 const CACHE = "nihongo-" + VERSION;
 const FONTS = "nihongo-fonts";
 const FILES = [
   "./",
   "./data/curriculum.js",
+  "./data/foka-img.js",
   "./data/kanji.js",
   "./data/licenses.js",
+  "./data/recog-t.js",
   "./data/s-k1.js",
   "./data/s-k2.js",
   "./data/s-k3.js",
@@ -32,6 +34,7 @@ const FILES = [
   "./licenses/HanziWriter-MIT.txt",
   "./licenses/kanji-data-MIT.txt",
   "./manifest.webmanifest",
+  "./recognize.js",
   "./sumi.js"
 ];
 
