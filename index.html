@@ -257,8 +257,8 @@ nav#bottom-nav {
   max-width: 740px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  padding: 4px 6px 6px;
+  grid-template-columns: repeat(6, 1fr);
+  padding: 4px 4px 6px;
   gap: 4px;
 }
 nav#bottom-nav a {
@@ -1427,6 +1427,17 @@ body.reduce-motion .pnode.current { animation: none; }
 .lvl-next { display: grid; gap: 8px; }
 .lvl-req { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; align-items: center; }
 .lvl-req .pbar { grid-column: 1 / -1; max-width: none; }
+/* Wyzwania */
+.chal { display: grid; gap: 12px; }
+.chal-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.chal-btn { display: grid; gap: 3px; text-align: left; padding: 12px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.chal-btn.done { border-color: var(--ok); }
+.chal-rec { color: var(--seal); font-weight: 600; }
+.chal-btn.done .chal-rec { color: var(--ok); }
+.chal-q { text-align: center; margin: 2px 0; }
+.chal-top { display: flex; justify-content: space-between; align-items: center; }
+.chal-lives { font-weight: 700; color: var(--seal); font-size: 0.9rem; }
+nav#bottom-nav a { font-size: 0.68rem; }
 /* Plan dnia */
 .pbar { height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; max-width: 380px; }
 .pbar i { display: block; height: 100%; background: var(--seal); border-radius: 99px; transition: width 400ms; }
@@ -1565,7 +1576,9 @@ window.onerror = function (m, s, l, c) {
     okd[k] = okd[k] ? [okd[k][0], t] : [t, t];
     store.set("okdays", okd);
   }
-  const isM = (k) => (drawable(k) ? sc(k) >= 3 && sw(k) >= 4 : sc(k) >= 4) && twoDays(k);
+  // umiesz = dobre wyniki; opanowane na stałe = do tego dobre odpowiedzi w dwóch różnych dniach
+  const known = (k) => (drawable(k) ? sc(k) >= 3 && sw(k) >= 4 : sc(k) >= 4);
+  const isM = (k) => known(k) && twoDays(k);
   const need = (k) => (drawable(k) ? (sc(k) + sw(k)) / 2 : sc(k));
 
   function setDue(k, ok, customDueMs) {
@@ -1622,7 +1635,7 @@ window.onerror = function (m, s, l, c) {
   }
 
   const lvl = (k) =>
-    isM(k)
+    known(k)
       ? "l2"
       : drawable(k) && sc(k) >= 3
       ? "lh"
@@ -1746,7 +1759,7 @@ window.onerror = function (m, s, l, c) {
       (x) => due[x.k] !== undefined && due[x.k] <= now
     );
   }
-  const mastered = (list) => list.filter((x) => isM(x.k)).length;
+  const mastered = (list) => list.filter((x) => known(x.k)).length;
 
   /* ---------- Rangi, historia aktywności i odznaki ---------- */
   const RANKS = [
@@ -1983,6 +1996,7 @@ window.onerror = function (m, s, l, c) {
     ["powtorka", "Powtórka", ZHC() ? "复" : "復"],
     ["nauka", "Nauka", "学"],
     ["pisanie", "Pisanie", "筆"],
+    ["wyzwania", "Wyzwania", "挑"],
     ["postepy", "Postępy", "道"],
   ];
 
@@ -3238,6 +3252,177 @@ window.onerror = function (m, s, l, c) {
     E.FX.complete();
     petals("burst");
     toast("合格", l && l.test ? "Dział zaliczony!" : "Lekcja ukończona!", l ? l.title : "");
+  }
+
+  /* ---------- Wyzwania: cała hiragana / katakana / kanji z pamięci, znak po znaku ---------- */
+  const CHALLENGES = () =>
+    ZHC()
+      ? [{ id: "hz", glyph: "字", name: "Znaki z kursu z pamięci", desc: "Każdy znak kursu po kolei, rysowany z pamięci.", items: () => ZHD.hall || [], prompt: (x) => x.a }]
+      : [
+          { id: "hira", glyph: "あ", name: "Cała hiragana z pamięci", desc: "46 znaków po kolei: widzisz czytanie, piszesz znak.", items: () => DECKS.hiragana.groups.filter((g) => /^basic/.test(g.id)).flatMap((g) => g.items), prompt: (x) => x.a },
+          { id: "kata", glyph: "ア", name: "Cała katakana z pamięci", desc: "46 znaków po kolei: widzisz czytanie, piszesz znak.", items: () => DECKS.katakana.groups.filter((g) => /^basic/.test(g.id)).flatMap((g) => g.items), prompt: (x) => x.a },
+          { id: "k1", glyph: "一", name: "Kanji z 1. klasy z pamięci", desc: "80 kanji: widzisz znaczenie, piszesz znak.", items: () => KG[1] || [], prompt: (x) => x.a },
+        ];
+  const CH_MODES = [
+    ["hard", "Bez błędu", 0, "Jedna pomyłka i od nowa."],
+    ["normal", "Dwie pomyłki", 2, "Trzecia pomyłka kończy podejście."],
+  ];
+  let CH = null;
+  let chPad = null;
+  let chRec = store.get("chal", {});
+  const chFmt = (ms) => {
+    const s = Math.round(ms / 1000);
+    return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  };
+  function challengesHTML() {
+    return `<h1 class="page-h">Wyzwania</h1>
+      <p class="small" style="margin:0 4px 12px">Tylko pisanie. Znaki idą po kolei, piszesz każdy z pamięci, kreski muszą być w dobrej kolejności.</p>
+      ${CHALLENGES()
+        .map((c) => {
+          const n = c.items().length;
+          return `<section class="card chal">
+            <div class="punit-h"><span class="jp punit-g">${c.glyph}</span><div><b>${c.name}</b><span class="small">${c.desc}</span></div></div>
+            <div class="chal-modes">${CH_MODES.map(([m, name, , hint]) => {
+              const r = chRec[c.id + ":" + m];
+              const rec = r ? (r.done ? `✓ ukończone · ${chFmt(r.time)}` : `rekord: ${r.best} / ${n}`) : "jeszcze nie próbowane";
+              return `<button type="button" class="chal-btn${r && r.done ? " done" : ""}" data-chal="${c.id}" data-chal-mode="${m}"><b>${name}</b><span class="small">${hint}</span><span class="small chal-rec">${rec}</span></button>`;
+            }).join("")}</div>
+          </section>`;
+        })
+        .join("")}`;
+  }
+  function chStart(id, mode) {
+    const c = CHALLENGES().find((x) => x.id === id);
+    const m = CH_MODES.find((x) => x[0] === mode) || CH_MODES[1];
+    if (!c) return;
+    CH = { c, mode: m[0], modeName: m[1], allowed: m[2], list: c.items(), i: 0, errors: 0, res: null, t0: Date.now(), over: false };
+  }
+  function chRunHTML() {
+    const { c, list, i } = CH;
+    const x = list[i];
+    const head = `<div class="chal-top"><span class="small">${Math.min(i + 1, list.length)} / ${list.length}</span>
+        <span class="chal-lives">${CH.allowed ? `Pomyłki: ${CH.errors} / ${CH.allowed}` : CH.errors ? "Pomyłka" : "Bez błędu"}</span></div>
+      <div class="pbar"><i style="width:${Math.round((i / list.length) * 100)}%"></i></div>`;
+    if (CH.over) {
+      const win = CH.over === "win";
+      return `<section class="card bz-end stack">${E.MASCOT.foka(win ? "happy" : "normal", 110)}
+        <div class="prompt">${win ? "Ukończone!" : "Koniec podejścia"}</div>
+        <p><b>${win ? list.length : i} / ${list.length}</b> znaków${win ? ` · czas ${chFmt(CH.time)}` : ""}${CH.newBest ? " · nowy rekord!" : ""}</p>
+        ${!win && CH.res && CH.res.exp ? `<p class="small">Poległeś na: <span class="jp" style="font-size:1.4rem">${CH.res.exp}</span></p>` : ""}
+        <div class="row"><button class="btn ghost" type="button" data-chal-list>Wyzwania</button><button class="btn primary-cta" type="button" data-chal-again>Od nowa</button></div></section>`;
+    }
+    if (CH.res) {
+      const r = CH.res;
+      const sod = strokeOrderSVG(r.exp, 120);
+      return `<section class="card stack">${head}
+        <div class="prompt ${c.id === "k1" || c.id === "hz" ? "" : "s2"} chal-q">${esc(c.prompt(x))}</div>
+        <div class="fb"><span class="v ${r.ok ? "ok" : "bad"}">${r.ok ? "Dobrze" : r.msg}</span></div>
+        <div class="hand-compare">
+          ${r.img ? `<figure><img src="${r.img}" alt="Twój znak"><figcaption>twój</figcaption></figure>` : ""}
+          <figure>${sod ? `<div class="model">${sod}</div>` : `<div class="jp model">${r.exp}</div>`}<figcaption>kolejność kresek</figcaption></figure>
+        </div>
+        ${r.ask ? `<div class="row"><button class="btn ghost" type="button" data-chal-judge="0">Nie, to inny znak</button><button class="btn primary-cta" type="button" data-chal-judge="1">Tak, to ${r.exp}</button></div>` : `<button class="btn primary-cta" type="button" data-chal-next>Dalej</button>`}
+      </section>`;
+    }
+    return `<section class="card stack">${head}
+      <div class="prompt ${c.id === "k1" || c.id === "hz" ? "" : "s2"} chal-q">${esc(c.prompt(x))}</div>
+      <div id="ch-pad" class="hand-wrap"></div>
+      <div class="ps-tools">
+        ${ib("data-ch-undo", "undo", "Cofnij kreskę")}
+        ${ib("data-ch-clear", "clear", "Wyczyść pole")}
+        <button class="btn ghost" type="button" data-chal-giveup>Nie pamiętam</button>
+        <button class="btn on ps-save" type="button" data-chal-check>Sprawdź</button>
+      </div>
+    </section>`;
+  }
+  function chMount() {
+    const el = document.getElementById("ch-pad");
+    chPad = el && window.HandRecog ? new window.HandRecog.HandPad(el) : null;
+    if (CH && CH.list[CH.i] && !(window.STROKES && window.STROKES[CH.list[CH.i].q])) getStrokeDataForChar(CH.list[CH.i].q);
+  }
+  function chVerdict(ok, msg, extra) {
+    const x = CH.list[CH.i];
+    CH.res = Object.assign({ ok, msg, exp: x.q }, extra || {});
+    if (CH.res.ask) return;
+    markW(x.k, ok, ok ? 3 : 1);
+    if (ok) {
+      E.FX.ok();
+      CH.res = null;
+      chAdvance();
+      return;
+    }
+    E.FX.bad && E.FX.bad();
+    CH.errors++;
+    if (CH.errors > CH.allowed) chEnd("lose");
+  }
+  function chAdvance() {
+    CH.i++;
+    if (CH.i >= CH.list.length) chEnd("win");
+  }
+  function chEnd(kind) {
+    CH.over = kind;
+    CH.time = Date.now() - CH.t0;
+    const key = CH.c.id + ":" + CH.mode;
+    const prev = chRec[key] || { best: 0, done: false };
+    const reached = kind === "win" ? CH.list.length : CH.i;
+    CH.newBest = reached > prev.best || (kind === "win" && (!prev.done || CH.time < prev.time));
+    chRec[key] = {
+      best: Math.max(prev.best, reached),
+      done: prev.done || kind === "win",
+      time: kind === "win" ? (prev.done ? Math.min(prev.time, CH.time) : CH.time) : prev.time,
+    };
+    store.set("chal", chRec);
+    if (kind === "win") {
+      E.FX.complete();
+      petals("burst");
+      toast("挑", "Wyzwanie ukończone!", `${CH.c.name} · ${chFmt(CH.time)}`);
+    }
+  }
+  function chClick(ds) {
+    if (ds.chal) {
+      chStart(ds.chal, ds.chalMode);
+      location.hash = "wyzwanie";
+      return true;
+    }
+    if (!CH) return false;
+    if (ds.chUndo !== undefined) { chPad && chPad.undo(); return true; }
+    if (ds.chClear !== undefined) { chPad && chPad.clear(); return true; }
+    if (ds.chalCheck !== undefined) {
+      if (!chPad || chPad.isEmpty()) return true;
+      const x = CH.list[CH.i];
+      const HR = window.HandRecog;
+      const strokes = chPad.snapshot();
+      const r = HR.recognize(strokes, chPad.size, {});
+      const top = r.candidates[0];
+      const same = (ch) => ch && (ch === x.q || HR.isLookalike(ch, x.q));
+      const hit = r.candidates.find((cd) => same(cd.ch));
+      const gap = hit && top ? hit.score - top.score : 1;
+      const img = chPad.thumbnail(96);
+      const recOk = (top && same(top.ch)) || gap <= 0.03;
+      const ord = HR.checkOrder ? HR.checkOrder(strokes, x.q) : null;
+      if (recOk || gap <= 0.07) {
+        if (ord && !ord.ok) chVerdict(false, "Dobry znak, ale " + orderMsg(ord), { img });
+        else if (recOk) chVerdict(true);
+        else chVerdict(false, "Nie jestem pewien", { img, ask: true });
+      } else chVerdict(false, "Inny znak" + (top ? ` (rozpoznałem ${top.ch})` : ""), { img });
+    } else if (ds.chalJudge !== undefined) {
+      const ok = ds.chalJudge === "1";
+      CH.res.ask = false;
+      chVerdict(ok, ok ? "" : "Inny znak", { img: CH.res.img });
+    } else if (ds.chalGiveup !== undefined) {
+      chVerdict(false, "Do powtórki", { img: chPad && !chPad.isEmpty() ? chPad.thumbnail(96) : "" });
+    } else if (ds.chalNext !== undefined) {
+      CH.res = null;
+      if (!CH.over) chAdvance();
+    } else if (ds.chalAgain !== undefined) {
+      chStart(CH.c.id, CH.mode);
+    } else if (ds.chalList !== undefined) {
+      CH = null;
+      location.hash = "wyzwania";
+      return true;
+    } else return false;
+    render();
+    return true;
   }
 
   function menuItem(href, glyph, name, list) {
@@ -4944,7 +5129,12 @@ window.onerror = function (m, s, l, c) {
    * Uzupełnianie zdań Cloze, Audio Recall, oraz opcjonalny Wybór z 4)
    * ========================================================================== */
   const typingOn = () => store.get("typing", true);
-  const drawOn = () => store.get("qdraw", true);
+  // jak często pytania z pisaniem odręcznym: 0 klawiatura, 1 mieszane, 2 głównie ręcznie, 3 tylko ręcznie
+  const drawFreq = () => {
+    const v = store.get("drawFreq", null);
+    return v === null ? (store.get("qdraw", true) ? 1 : 0) : v;
+  };
+  const drawOn = () => drawFreq() > 0;
   const onlyOn = () => store.get("only", false);
   const autoOn = () =>
     store.get("auto:" + (T && T.deck ? T.deck.kind : "kana"), false);
@@ -4990,7 +5180,7 @@ window.onerror = function (m, s, l, c) {
       return T.deck.all.filter((x) => (due[x.k] || 0) <= now);
     }
     const b = basePool();
-    return onlyOn() ? b.filter((x) => !isM(x.k)) : b;
+    return onlyOn() ? b.filter((x) => !known(x.k)) : b;
   };
   const emptyMsg = () =>
     basePool().length && onlyOn()
@@ -5067,8 +5257,10 @@ window.onerror = function (m, s, l, c) {
       x.kind !== "phrase" &&
       drawOn() &&
       x.q.length === 1 &&
-      sc(x.k) >= 1 &&
-      Math.random() < (T.review && sw(x.k) < sc(x.k) ? 0.75 : sw(x.k) < 4 ? 0.5 : 0.25);
+      (sc(x.k) >= 1 || drawFreq() >= 2) &&
+      Math.random() <
+        // gdy rozpoznawanie już umiesz, a pisanie jeszcze nie, pytaj prawie zawsze o pisanie — inaczej znak nigdy się nie zaliczy
+        [0, sc(x.k) >= 3 && sw(x.k) < 4 ? 0.9 : T.review && sw(x.k) < sc(x.k) ? 0.75 : sw(x.k) < 4 ? 0.5 : 0.25, 0.85, 1][drawFreq()];
 
     T.qfree = !!(T.qdraw && window.RECOG_T && window.RECOG_T[x.q] && !ZHC());
     // zwroty: głównie z polskiego na japoński
@@ -5759,8 +5951,12 @@ window.onerror = function (m, s, l, c) {
           <button type="button" data-set-dir="1" aria-pressed="${dir === 1}">Na ${ZHC() ? "chiński" : "japoński"}</button>
           <button type="button" data-set-dir="2" aria-pressed="${dir === 2}">Mieszane</button>
         </div>
+        <div class="ctl"><span class="small">Odpowiadasz</span>
+          <div class="seg">${[[0, "Klawiaturą"], [1, "Mieszane"], [2, "Głównie ręcznie"], [3, "Tylko ręcznie"]]
+            .map(([v, n]) => `<button type="button" data-draw-freq="${v}" aria-pressed="${drawFreq() === v}">${n}</button>`)
+            .join("")}</div>
+        </div>
         <div class="chips">
-          ${chip('data-set-flag="qdraw"', drawOn(), "Pytania z pisaniem odręcznym")}
           ${chip('data-set-flag="only"', onlyOn(), "Tylko nieopanowane")}
           ${chip('data-set-flag="auto"', auto, "Samo przechodzi dalej")}
         </div>
@@ -5928,7 +6124,8 @@ window.onerror = function (m, s, l, c) {
       }
       WStudio.inPool = true;
     } else if (
-      ["start", "powtorka", "nauka", "pisanie", "postepy", "licencje", "sciezka"].includes(h)
+      ["start", "powtorka", "nauka", "pisanie", "postepy", "licencje", "sciezka", "wyzwania"].includes(h) ||
+      (h === "wyzwanie" && CH)
     ) {
       route = h;
       if (h === "nauka") naukaSec = null;
@@ -5954,7 +6151,7 @@ window.onerror = function (m, s, l, c) {
 
   function render() {
     activeSumiPad = null;
-    if (route !== "nauka") document.body.classList.remove("ps-focus");
+    if (route !== "nauka" && route !== "wyzwanie") document.body.classList.remove("ps-focus");
     setTimeout(() => setAmbientPetals((route === "start" || route === "postepy") && !(T && T.run)), 0);
     if (!T || !T.run) setFocus(false, "");
     drawNav();
@@ -5985,6 +6182,13 @@ window.onerror = function (m, s, l, c) {
     }
     if (route === "licencje") {
       view.innerHTML = licensesHTML();
+      return;
+    }
+    if (route === "wyzwania" || route === "wyzwanie") {
+      const run = route === "wyzwanie" && CH;
+      document.body.classList.toggle("ps-focus", !!run);
+      view.innerHTML = run ? backBar("wyzwania", "Wyzwania", CH.modeName) + chRunHTML() : challengesHTML();
+      if (run) chMount();
       return;
     }
     if (route === "sciezka") {
@@ -6048,6 +6252,15 @@ window.onerror = function (m, s, l, c) {
       E.FX.tap();
       importArmed = false;
       openSheet(settingsSheetHTML());
+      return;
+    }
+    if (ds.drawFreq !== undefined) {
+      E.FX.tap();
+      store.set("drawFreq", +ds.drawFreq);
+      if (T && !T.run) {
+        T.cur = null;
+        nextQ();
+      }
       return;
     }
     if (ds.setMode || ds.setDir !== undefined || ds.setFlag) {
@@ -6294,6 +6507,7 @@ window.onerror = function (m, s, l, c) {
     }
     if (bzClick(ds)) return;
     if (psClick(ds)) return;
+    if (chClick(ds)) return;
     if (ds.back) {
       E.FX.tap();
       if (window.__cameFromMenu && history.length > 1) history.back();
@@ -6864,7 +7078,7 @@ window.onerror = function (m, s, l, c) {
   drawScenery();
   window.addEventListener("hashchange", () => {
     const h = location.hash.slice(1);
-    window.__cameFromMenu = ["nauka", "pisanie", "budowa", "zd", "sciezka"].includes(lastHash) && h !== lastHash;
+    window.__cameFromMenu = ["nauka", "pisanie", "budowa", "zd", "sciezka", "wyzwania"].includes(lastHash) && h !== lastHash;
   }, true);
   window.addEventListener("hashchange", go);
   if (checkBadges()) store.set("game", G);
